@@ -11,8 +11,16 @@ class GoogleSheetsDB {
 
   async initialize() {
     try {
-      // Load credentials from JSON file
-      const credentials = JSON.parse(fs.readFileSync('./credentials.json'));
+      // Load credentials from environment variable or file
+      let credentials;
+      
+      if (process.env.GOOGLE_CREDENTIALS) {
+        // Production: Read from environment variable
+        credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+      } else {
+        // Development: Read from file
+        credentials = JSON.parse(fs.readFileSync('./credentials.json'));
+      }
       
       this.auth = new google.auth.GoogleAuth({
         credentials: credentials,
