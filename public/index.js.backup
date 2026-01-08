@@ -1,0 +1,520 @@
+// Global variables
+let userLocation = null;
+let vendorSettings = null;
+let locationVerified = false;
+let pageConfig = null;
+
+// Load page configuration and initialize
+async function initializePage() {
+    try {
+        // Load page customization
+        const response = await fetch('/api/page-customization');
+        pageConfig = await response.json();
+        
+        // Apply configuration
+        applyPageCustomization();
+        
+        // Load dynamic content
+        await loadDynamicContent();
+        
+        // Get user location
+        getUserLocation();
+    } catch (error) {
+        console.error('Error initializing page:', error);
+        // Fallback to default if API fails
+        loadDefaultContent();
+    }
+}
+
+// Apply page customization
+function applyPageCustomization() {
+    if (!pageConfig) return;
+    
+    // Update CSS variables
+    if (pageConfig.colors) {
+        const root = document.documentElement;
+        root.style.setProperty('--color-primary', pageConfig.colors.primary || '#1e3c72');
+        root.style.setProperty('--color-secondary', pageConfig.colors.secondary || '#2a5298');
+        root.style.setProperty('--color-accent', pageConfig.colors.accent || '#667eea');
+        root.style.setProperty('--color-background', pageConfig.colors.background || '#f5f5f5');
+    }
+    
+    if (pageConfig.fonts) {
+        document.documentElement.style.setProperty('--font-primary', pageConfig.fonts.primary);
+    }
+    
+    // Update header
+    if (pageConfig.header) {
+        document.getElementById('headerLogo').textContent = pageConfig.header.logo || '🐄';
+        document.getElementById('headerTitle').textContent = pageConfig.header.title || 'Welcome';
+        document.getElementById('headerSubtitle').textContent = pageConfig.header.subtitle || '';
+        document.title = pageConfig.header.title || 'Welcome';
+        
+        // Update navigation
+        const nav = document.getElementById('headerNav');
+        if (pageConfig.header.navLinks && Array.isArray(pageConfig.header.navLinks)) {
+            nav.innerHTML = pageConfig.header.navLinks.map(link => 
+                `<a href="#${link.toLowerCase()}" class="nav-link">${link}</a>`
+            ).join('');
+        }
+    }
+    
+    // Update hero section
+    if (pageConfig.hero) {
+        document.getElementById('heroHeading').textContent = pageConfig.hero.mainHeading || '';
+        document.getElementById('heroQuote').textContent = pageConfig.hero.quote || '';
+        document.getElementById('heroQuoteSource').textContent = pageConfig.hero.quoteSource || '';
+        
+        // Update slider images
+        if (pageConfig.hero.sliderImages && Array.isArray(pageConfig.hero.sliderImages)) {
+            const slider = document.getElementById('sliderContainer');
+            const gradients = [
+                'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+                'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+                'linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)'
+            ];
+            
+            slider.innerHTML = pageConfig.hero.sliderImages.map((imgUrl, index) => {
+                const gradientBg = gradients[index % gradients.length];
+                return `<div class="slide" style="background: ${gradientBg}; background-image: url('${imgUrl}'); background-size: cover; background-position: center;"></div>`;
+            }).join('');
+        }
+        
+        // Update features
+        if (pageConfig.hero.features && Array.isArray(pageConfig.hero.features)) {
+            const featuresContainer = document.getElementById('featuresContainer');
+            featuresContainer.innerHTML = pageConfig.hero.features.map(feature => `
+                <div class="feature-item">
+                    <div class="feature-icon">${feature.icon || ''}</div>
+                    <div class="feature-text">
+                        <h4>${feature.title || ''}</h4>
+                        <p>${feature.description || ''}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+    
+    // Update booking form
+    if (pageConfig.booking) {
+        document.getElementById('bookingTitle').textContent = pageConfig.booking.title || 'Book Seva';
+        document.getElementById('bookingSubtitle').textContent = pageConfig.booking.subtitle || '';
+        document.getElementById('submitBtn').textContent = pageConfig.booking.buttonText || 'Book Appointment';
+        document.getElementById('floatingBtnText').textContent = pageConfig.booking.floatingButtonText || 'Book Seva';
+    }
+    
+    // Update sections visibility and titles
+    if (pageConfig.sections) {
+        // Gallery section
+        if (pageConfig.sections.gallery) {
+            const gallerySection = document.getElementById('gallerySection');
+            if (pageConfig.sections.gallery.enabled === false) {
+                gallerySection.classList.add('hidden');
+            } else {
+                document.getElementById('gallerySectionTitle').textContent = pageConfig.sections.gallery.title || 'Gallery';
+            }
+        }
+        
+        // Services section
+        if (pageConfig.sections.services) {
+            const servicesSection = document.getElementById('servicesSection');
+            if (pageConfig.sections.services.enabled === false) {
+                servicesSection.classList.add('hidden');
+            } else {
+                document.getElementById('servicesSectionTitle').textContent = pageConfig.sections.services.title || 'Services';
+                document.getElementById('servicesSectionDescription').textContent = pageConfig.sections.services.description || '';
+            }
+        }
+        
+        // Seva Options section
+        if (pageConfig.sections.sevaOptions) {
+            const sevaOptionsSection = document.getElementById('sevaOptionsSection');
+            if (pageConfig.sections.sevaOptions.enabled === false) {
+                sevaOptionsSection.classList.add('hidden');
+            } else {
+                document.getElementById('sevaOptionsSectionTitle').textContent = pageConfig.sections.sevaOptions.title || 'Seva Options';
+            }
+        }
+        
+        // Stats section
+        if (pageConfig.sections.stats) {
+            const statsSection = document.getElementById('statsSection');
+            if (pageConfig.sections.stats.enabled === false) {
+                statsSection.classList.add('hidden');
+            } else {
+                document.getElementById('statsSectionTitle').textContent = pageConfig.sections.stats.title || 'Statistics';
+                document.getElementById('statsSectionDescription').textContent = pageConfig.sections.stats.description || '';
+            }
+        }
+        
+        // Contributors section
+        if (pageConfig.sections.contributors) {
+            const contributorsSection = document.getElementById('contributorsSection');
+            if (pageConfig.sections.contributors.enabled === false) {
+                contributorsSection.classList.add('hidden');
+            } else {
+                document.getElementById('contributorsSectionTitle').textContent = pageConfig.sections.contributors.title || 'Contributors';
+            }
+        }
+    }
+}
+
+// Load dynamic content from API
+async function loadDynamicContent() {
+    await Promise.all([
+        loadSevaServices(),
+        loadSevaOptions(),
+        loadStats(),
+        loadContributors('recent'),
+        loadGalleryImages()
+    ]);
+}
+
+// Open booking form
+function openBookingForm() {
+    document.getElementById('bookingCard').classList.add('active');
+    document.getElementById('bookingOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    if (!userLocation) {
+        getUserLocation();
+    }
+}
+
+// Close booking form
+function closeBookingForm() {
+    document.getElementById('bookingCard').classList.remove('active');
+    document.getElementById('bookingOverlay').classList.remove('active');
+    document.body.style.overflow = 'auto';
+}
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeBookingForm();
+    }
+});
+
+// Get user's location
+async function getUserLocation() {
+    const locationStatus = document.getElementById('locationStatus');
+    const locationText = document.getElementById('locationText');
+
+    if (!navigator.geolocation) {
+        locationStatus.className = 'location-info error';
+        locationText.textContent = 'Geolocation is not supported by your browser';
+        return;
+    }
+
+    try {
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        });
+
+        userLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        };
+
+        await verifyLocation();
+    } catch (error) {
+        locationStatus.className = 'location-info error';
+        locationText.textContent = '⚠️ Please enable location access to book an appointment';
+        console.error('Error getting location:', error);
+    }
+}
+
+// Verify location is within allowed radius
+async function verifyLocation() {
+    const locationStatus = document.getElementById('locationStatus');
+    const locationText = document.getElementById('locationText');
+
+    try {
+        const response = await fetch('/api/verify-location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userLocation)
+        });
+
+        const result = await response.json();
+
+        if (result.allowed) {
+            locationStatus.className = 'location-info success';
+            locationText.textContent = `✅ You're ${result.distance}m away - Good to go!`;
+            locationVerified = true;
+        } else {
+            locationStatus.className = 'location-info error';
+            locationText.textContent = `❌ You're ${result.distance}m away (max ${result.radius}m allowed)`;
+            locationVerified = false;
+        }
+    } catch (error) {
+        locationStatus.className = 'location-info error';
+        locationText.textContent = '⚠️ Could not verify location';
+        console.error('Error verifying location:', error);
+    }
+}
+
+// Handle form submission
+document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!locationVerified) {
+        showMessage('Please enable location and ensure you are within the allowed area', 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loader"></span> Booking...';
+
+    const formData = {
+        customerName: document.getElementById('customerName').value,
+        customerPhone: document.getElementById('customerPhone').value,
+        customerEmail: document.getElementById('customerEmail').value,
+        customerLat: userLocation.latitude,
+        customerLng: userLocation.longitude,
+        notes: document.getElementById('notes').value
+    };
+
+    try {
+        const response = await fetch('/api/book-appointment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showSuccessWithQueue(result);
+            document.getElementById('bookingForm').reset();
+        } else {
+            showMessage('❌ ' + (result.error || 'Booking failed'), 'error');
+        }
+    } catch (error) {
+        showMessage('❌ Error booking appointment. Please try again.', 'error');
+        console.error('Error:', error);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = pageConfig?.booking?.buttonText || 'Book Appointment';
+    }
+});
+
+function showSuccessWithQueue(result) {
+    const messageDiv = document.getElementById('message');
+    const peopleAhead = result.peopleAhead || 0;
+    
+    let whatsappBadge = '';
+    if (result.whatsappSent) {
+        whatsappBadge = '<div class="whatsapp-badge">✅ WhatsApp confirmation sent!</div>';
+    }
+    
+    messageDiv.innerHTML = `
+        <div class="queue-info">
+            <h3>🎉 Booking Confirmed!</h3>
+            <p style="font-size: 1.1em; margin: 10px 0;">
+                Welcome! Your appointment at <strong>${result.businessName || 'our facility'}</strong> has been confirmed.
+            </p>
+            ${whatsappBadge}
+            <div class="queue-stats">
+                <div class="queue-stat">
+                    <div class="label">Your Position</div>
+                    <div class="value">#${result.queuePosition}</div>
+                </div>
+                <div class="queue-stat">
+                    <div class="label">People Ahead</div>
+                    <div class="value">${peopleAhead}</div>
+                </div>
+            </div>
+            <p style="margin-top: 15px; color: #666;">
+                ${peopleAhead === 0 
+                    ? '🏆 You\'re next in line! We\'ll call you shortly.' 
+                    : `⏱️ Please wait, we'll serve you soon!`}
+            </p>
+        </div>
+    `;
+    messageDiv.className = 'message';
+}
+
+function showMessage(text, type) {
+    const messageDiv = document.getElementById('message');
+    messageDiv.textContent = text;
+    messageDiv.className = `message ${type}`;
+    
+    if (type === 'success') {
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Load Services (from Services sheet - Gaushala Welfare Services section)
+async function loadSevaServices() {
+    try {
+        const response = await fetch('/api/services');
+        const services = await response.json();
+
+        const grid = document.getElementById('sevaGrid');
+        grid.innerHTML = services.map(service => `
+            <div class="seva-card">
+                <img src="${service.iconImageUrl || 'https://images.unsplash.com/photo-1560493676-04071c5f467b?w=500&q=80'}" alt="${service.serviceName}" class="seva-card-image">
+                <div class="seva-card-content">
+                    <h3>${service.serviceName}</h3>
+                    <p>${service.shortDescription || service.longDescription || ''}</p>
+                    <button class="donate-btn">Learn More</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading services:', error);
+    }
+}
+
+// Load Seva Options (from SevaPackages sheet - GAUSHALA SEVA section)
+async function loadSevaOptions() {
+    try {
+        const response = await fetch('/api/seva-services');
+        const services = await response.json();
+        
+        const grid = document.getElementById('sevaOptionsGrid');
+        grid.innerHTML = services.map(service => `
+            <div class="seva-card">
+                <img src="${service.imageUrl || 'https://images.unsplash.com/photo-1585116805642-02d8e02ef96c?w=500&q=80'}" alt="${service.sevaName}" class="seva-card-image">
+                <div class="seva-card-content">
+                    <h3>${service.sevaName}</h3>
+                    <p>${service.description || ''}</p>
+                    <div class="seva-amount">₹${service.amount}</div>
+                    <button class="donate-btn">Donate</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading seva options:', error);
+    }
+}
+
+// Load Stats from Google Sheets
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const statsData = await response.json();
+        
+        const stats = Object.entries(statsData).map(([label, value]) => ({
+            number: value,
+            label: label
+        }));
+
+        const grid = document.getElementById('statsGrid');
+        grid.innerHTML = stats.map(stat => `
+            <div class="stat-item">
+                <div class="stat-number">${stat.number}</div>
+                <div class="stat-label">${stat.label}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// Load Contributors from Google Sheets
+async function loadContributors(type) {
+    // Update active tab
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if ((type === 'recent' && btn.textContent === 'Recent') ||
+            (type === 'generous' && btn.textContent === 'Most Generous')) {
+            btn.classList.add('active');
+        }
+    });
+
+    try {
+        const response = await fetch('/api/contributors');
+        let contributors = await response.json();
+        
+        // Sort by amount if generous, otherwise keep chronological
+        const sortedContributors = type === 'generous' 
+            ? [...contributors].sort((a, b) => b.amount - a.amount)
+            : contributors;
+
+        const grid = document.getElementById('contributorsGrid');
+        grid.innerHTML = sortedContributors.map(contributor => {
+            const timeAgo = calculateTimeAgo(contributor.timestamp);
+            
+            return `
+                <div class="contributor-card">
+                    <div class="contributor-avatar">${contributor.name.charAt(0).toUpperCase()}</div>
+                    <div class="contributor-info">
+                        <h4>${contributor.name}</h4>
+                        <p>Donated ₹ ${contributor.amount}</p>
+                        <p class="time">${timeAgo}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading contributors:', error);
+    }
+}
+
+// Calculate time ago from timestamp
+function calculateTimeAgo(timestamp) {
+    if (!timestamp) return 'recently';
+    
+    try {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffMins < 60) {
+            return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+        } else if (diffHours < 24) {
+            return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+        } else {
+            return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+        }
+    } catch (e) {
+        return 'recently';
+    }
+}
+
+// Load Gallery Images from Google Sheets
+async function loadGalleryImages() {
+    try {
+        const response = await fetch('/api/gallery');
+        const images = await response.json();
+        
+        if (images && images.length > 0) {
+            const galleryGrid = document.getElementById('galleryGrid');
+            galleryGrid.innerHTML = images.map(img => `
+                <div class="gallery-item">
+                    <img src="${img.imageUrl}" alt="${img.caption || 'Gallery image'}">
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading gallery:', error);
+    }
+}
+
+// Fallback to default content if API fails
+function loadDefaultContent() {
+    // Use default values if customization fails
+    console.log('Using default content');
+}
+
+// Initialize page when DOM is loaded
+window.addEventListener('DOMContentLoaded', () => {
+    initializePage();
+});
