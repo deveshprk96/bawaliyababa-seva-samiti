@@ -35,14 +35,28 @@ const checkAuth = (req, res, next) => {
 };
 
 // Initialize database
+let dbInitPromise = null;
 let isDbReady = false;
-db.initialize().then(() => {
-  isDbReady = true;
-  // Setup sheets structure on first run (commented out since sheets are manually created)
-  // db.setupSheets();
-}).catch(err => {
-  console.error('Failed to initialize database:', err);
-});
+
+async function ensureDbReady() {
+  if (isDbReady) return true;
+  
+  if (!dbInitPromise) {
+    dbInitPromise = db.initialize()
+      .then(() => {
+        isDbReady = true;
+        console.log('✅ Database initialized successfully');
+        return true;
+      })
+      .catch(err => {
+        console.error('❌ Failed to initialize database:', err);
+        dbInitPromise = null; // Reset so it can retry
+        throw err;
+      });
+  }
+  
+  return dbInitPromise;
+}
 
 // Routes
 
@@ -59,9 +73,7 @@ app.get('/admin', (req, res) => {
 // API: Get vendor settings (for location check)
 app.get('/api/vendor-settings', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const settings = await db.getVendorSettings();
     res.json(settings);
   } catch (error) {
@@ -72,9 +84,7 @@ app.get('/api/vendor-settings', async (req, res) => {
 // API: Get page customization
 app.get('/api/page-customization', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const customization = await db.getPageCustomization();
     res.json(customization);
   } catch (error) {
@@ -85,9 +95,7 @@ app.get('/api/page-customization', async (req, res) => {
 // API: Update page customization (admin only)
 app.post('/api/page-customization', checkAuth, async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     await db.updatePageCustomization(req.body);
     res.json({ success: true, message: 'Page customization updated successfully' });
   } catch (error) {
@@ -98,9 +106,7 @@ app.post('/api/page-customization', checkAuth, async (req, res) => {
 // API: Update vendor settings (admin only)
 app.post('/api/vendor-settings', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     
     // Simple auth check
     const { username, password } = req.headers;
@@ -118,9 +124,7 @@ app.post('/api/vendor-settings', async (req, res) => {
 // API: Verify location
 app.post('/api/verify-location', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
 
     const { latitude, longitude } = req.body;
     const settings = await db.getVendorSettings();
@@ -142,9 +146,7 @@ app.post('/api/verify-location', async (req, res) => {
 // API: Book appointment
 app.post('/api/book-appointment', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
 
     const { customerName, customerPhone, customerEmail, customerLat, customerLng, notes } = req.body;
 
@@ -211,9 +213,7 @@ app.post('/api/book-appointment', async (req, res) => {
 // API: Get all appointments (admin only)
 app.get('/api/appointments', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
 
     // Simple auth check
     const { username, password } = req.headers;
@@ -231,9 +231,7 @@ app.get('/api/appointments', async (req, res) => {
 // API: Start appointment (admin only)
 app.post('/api/appointments/:id/start', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
 
     // Simple auth check
     const { username, password } = req.headers;
@@ -252,9 +250,7 @@ app.post('/api/appointments/:id/start', async (req, res) => {
 // API: Complete appointment (admin only)
 app.post('/api/appointments/:id/complete', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
 
     // Simple auth check
     const { username, password } = req.headers;
@@ -295,9 +291,7 @@ app.post('/api/login', (req, res) => {
 // API: Get gallery images
 app.get('/api/gallery', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const gallery = await db.getGallery();
     res.json(gallery);
   } catch (error) {
@@ -308,9 +302,7 @@ app.get('/api/gallery', async (req, res) => {
 // API: Get seva services
 app.get('/api/seva-services', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const services = await db.getSevaServices();
     res.json(services);
   } catch (error) {
@@ -321,9 +313,7 @@ app.get('/api/seva-services', async (req, res) => {
 // API: Get contributors
 app.get('/api/contributors', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const contributors = await db.getContributors();
     res.json(contributors);
   } catch (error) {
@@ -334,9 +324,7 @@ app.get('/api/contributors', async (req, res) => {
 // API: Get stats
 app.get('/api/stats', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const stats = await db.getStats();
     res.json(stats);
   } catch (error) {
@@ -347,9 +335,7 @@ app.get('/api/stats', async (req, res) => {
 // API: Get services
 app.get('/api/services', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const services = await db.getServices();
     res.json(services);
   } catch (error) {
@@ -360,9 +346,7 @@ app.get('/api/services', async (req, res) => {
 // API: Get expenses
 app.get('/api/expenses', async (req, res) => {
   try {
-    if (!isDbReady) {
-      return res.status(503).json({ error: 'Database not ready' });
-    }
+    await ensureDbReady();
     const expenses = await db.getExpenses();
     res.json(expenses);
   } catch (error) {
