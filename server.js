@@ -5,12 +5,13 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-// Check if credentials.json exists, otherwise use in-memory DB
+// Check if Google credentials are available (env var or file), otherwise use in-memory DB
 let db;
-if (fs.existsSync('./credentials.json')) {
+if (process.env.GOOGLE_CREDENTIALS || fs.existsSync('./credentials.json')) {
   db = require('./googleSheetsDB');
+  console.log('🔵 Using Google Sheets Database');
 } else {
-  console.log('⚠️  credentials.json not found - Running in DEMO MODE');
+  console.log('⚠️  No Google credentials found - Running in DEMO MODE with in-memory DB');
   db = require('./inMemoryDB');
 }
 
@@ -35,28 +36,14 @@ const checkAuth = (req, res, next) => {
 };
 
 // Initialize database
-let dbInitPromise = null;
 let isDbReady = false;
-
-async function ensureDbReady() {
-  if (isDbReady) return true;
-  
-  if (!dbInitPromise) {
-    dbInitPromise = db.initialize()
-      .then(() => {
-        isDbReady = true;
-        console.log('✅ Database initialized successfully');
-        return true;
-      })
-      .catch(err => {
-        console.error('❌ Failed to initialize database:', err);
-        dbInitPromise = null; // Reset so it can retry
-        throw err;
-      });
-  }
-  
-  return dbInitPromise;
-}
+db.initialize().then(() => {
+  isDbReady = true;
+  // Setup sheets structure on first run (commented out since sheets are manually created)
+  // db.setupSheets();
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+});
 
 // Routes
 
@@ -73,7 +60,9 @@ app.get('/admin', (req, res) => {
 // API: Get vendor settings (for location check)
 app.get('/api/vendor-settings', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const settings = await db.getVendorSettings();
     res.json(settings);
   } catch (error) {
@@ -84,7 +73,9 @@ app.get('/api/vendor-settings', async (req, res) => {
 // API: Get page customization
 app.get('/api/page-customization', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const customization = await db.getPageCustomization();
     res.json(customization);
   } catch (error) {
@@ -95,7 +86,9 @@ app.get('/api/page-customization', async (req, res) => {
 // API: Update page customization (admin only)
 app.post('/api/page-customization', checkAuth, async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     await db.updatePageCustomization(req.body);
     res.json({ success: true, message: 'Page customization updated successfully' });
   } catch (error) {
@@ -106,7 +99,9 @@ app.post('/api/page-customization', checkAuth, async (req, res) => {
 // API: Update vendor settings (admin only)
 app.post('/api/vendor-settings', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     
     // Simple auth check
     const { username, password } = req.headers;
@@ -124,7 +119,9 @@ app.post('/api/vendor-settings', async (req, res) => {
 // API: Verify location
 app.post('/api/verify-location', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
 
     const { latitude, longitude } = req.body;
     const settings = await db.getVendorSettings();
@@ -146,7 +143,9 @@ app.post('/api/verify-location', async (req, res) => {
 // API: Book appointment
 app.post('/api/book-appointment', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
 
     const { customerName, customerPhone, customerEmail, customerLat, customerLng, notes } = req.body;
 
@@ -213,7 +212,9 @@ app.post('/api/book-appointment', async (req, res) => {
 // API: Get all appointments (admin only)
 app.get('/api/appointments', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
 
     // Simple auth check
     const { username, password } = req.headers;
@@ -231,7 +232,9 @@ app.get('/api/appointments', async (req, res) => {
 // API: Start appointment (admin only)
 app.post('/api/appointments/:id/start', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
 
     // Simple auth check
     const { username, password } = req.headers;
@@ -250,7 +253,9 @@ app.post('/api/appointments/:id/start', async (req, res) => {
 // API: Complete appointment (admin only)
 app.post('/api/appointments/:id/complete', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
 
     // Simple auth check
     const { username, password } = req.headers;
@@ -291,7 +296,9 @@ app.post('/api/login', (req, res) => {
 // API: Get gallery images
 app.get('/api/gallery', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const gallery = await db.getGallery();
     res.json(gallery);
   } catch (error) {
@@ -302,7 +309,9 @@ app.get('/api/gallery', async (req, res) => {
 // API: Get seva services
 app.get('/api/seva-services', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const services = await db.getSevaServices();
     res.json(services);
   } catch (error) {
@@ -313,7 +322,9 @@ app.get('/api/seva-services', async (req, res) => {
 // API: Get contributors
 app.get('/api/contributors', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const contributors = await db.getContributors();
     res.json(contributors);
   } catch (error) {
@@ -324,7 +335,9 @@ app.get('/api/contributors', async (req, res) => {
 // API: Get stats
 app.get('/api/stats', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const stats = await db.getStats();
     res.json(stats);
   } catch (error) {
@@ -335,7 +348,9 @@ app.get('/api/stats', async (req, res) => {
 // API: Get services
 app.get('/api/services', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const services = await db.getServices();
     res.json(services);
   } catch (error) {
@@ -346,7 +361,9 @@ app.get('/api/services', async (req, res) => {
 // API: Get expenses
 app.get('/api/expenses', async (req, res) => {
   try {
-    await ensureDbReady();
+    if (!isDbReady) {
+      return res.status(503).json({ error: 'Database not ready' });
+    }
     const expenses = await db.getExpenses();
     res.json(expenses);
   } catch (error) {
@@ -579,14 +596,9 @@ app.put('/api/admin/expenses/:index', checkAuth, async (req, res) => {
   }
 });
 
-// Start server (only in local development)
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📱 Customer page: http://localhost:${PORT}`);
-    console.log(`🔧 Admin panel: http://localhost:${PORT}/admin`);
-  });
-}
-
-// Export for Vercel
-module.exports = app;
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📱 Customer page: http://localhost:${PORT}`);
+  console.log(`🔧 Admin panel: http://localhost:${PORT}/admin`);
+});
