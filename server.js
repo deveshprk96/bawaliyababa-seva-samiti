@@ -595,9 +595,14 @@ app.put('/api/admin/expenses/:index', checkAuth, async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📱 Customer page: http://localhost:${PORT}`);
-  console.log(`🔧 Admin panel: http://localhost:${PORT}/admin`);
-});
+// Start server (only in local development)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📱 Customer page: http://localhost:${PORT}`);
+    console.log(`🔧 Admin panel: http://localhost:${PORT}/admin`);
+  });
+}
+
+// Export for Vercel
+module.exports = app;
